@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 """
-sanitize_threads_udf.py
+sanitize_threads.py
 ────────────────────────────────────────────────────────────────────────────
-PySpark script that:
-  • Registers a UDF `sanitize_email_thread(raw: str) -> str`
-  • Reads dirty_email_threads.csv (columns: sl.no, market, text)
-  • Adds a `clean_text` column with sanitized content
-  • Writes the cleaned result to emails_clean.csv
+Pure-Python script (no PySpark, no external deps) that:
 
-Sanitization logic removes HTML, RFC headers, disclaimers, ads, PII links,
-mojibake, and extra whitespace while preserving salutations/closings.
+  • Reads  dirty_email_threads.csv  (columns: sl.no, market, text)
+  • Sanitizes each “text” field via  sanitize_email_thread(raw: str)
+  • Writes  emails_clean.csv  with an extra  clean_text  column
+
+The sanitization logic strips HTML, RFC headers, disclaimers, ads, PII
+links, mojibake, repeated punctuation, and extra whitespace while preserving
+salutations / closings in common languages.
 """
 
 from __future__ import annotations
+
+import csv
 import re
+import sys
 import unicodedata
 from html import unescape
-
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, udf
-from pyspark.sql.types import StringType
+from pathlib import Path
 
 # ─────────────────────────── Regex helpers (compiled once) ──────────────────────────
 _SCRIPT_STYLE = re.compile(r"<(script|style)[^>]*?>.*?</\1>", re.I | re.S)
@@ -128,7 +129,7 @@ def _tidy(text: str) -> str:
     text = _BLANKS.sub("\n\n", text)
     return text.strip()
 
-# ─────────────────────────── Core sanitization UDF ─────────────────────────
+# ─────────────────────────── Core sanitization  ────────────────────────────
 def sanitize_email_thread(raw: str) -> str:
     if not raw:
         return ""
@@ -138,34 +139,34 @@ def sanitize_email_thread(raw: str) -> str:
     lines = _drop_disclaimers_ads(lines)
     return _tidy("\n".join(lines))
 
-sanitize_email_thread_udf = udf(sanitize_email_thread, StringType())
+# ────────────────────────────── Main CLI  ───────────────────────────────────
+def main(
+    input_path: str = "dirty_email_threads.csv",
+    output_path: str = "emails_clean.csv",
+    delim: str = ",",
+) -> None:
+    if not Path(input_path).exists():
+        sys.exit(f"Input file not found: {input_path}")
 
-# ────────────────────────────── Main job ───────────────────────────────────
+    with open(input_path, newline="", encoding="utf-8", errors="ignore") as fin, \
+         open(output_path, "w", newline="", encoding="utf-8") as fout:
+
+        reader = csv.DictReader(fin, delimiter=delim)
+        fieldnames = reader.fieldnames or []
+        if "clean_text" not in fieldnames:
+            fieldnames += ["clean_text"]
+
+        writer = csv.DictWriter(fout, fieldnames=fieldnames, delimiter=delim)
+        writer.writeheader()
+
+        for row in reader:
+            raw   = row.get("text", "")
+            clean = sanitize_email_thread(raw)
+            row["clean_text"] = clean
+            writer.writerow(row)
+
+    print(f"✔ Cleaning complete → {output_path}")
+
+# Run when executed as a script
 if __name__ == "__main__":
-    spark = SparkSession.builder.appName("email-thread-sanitize").getOrCreate()
-
-    INPUT_PATH  = "dirty_email_threads.csv"  # raw data file
-    OUTPUT_PATH = "emails_clean.csv"         # cleaned output
-    DELIM       = ","                        # set to "\t" for TSV
-
-    df = (
-        spark.read
-        .option("header", True)
-        .option("sep", DELIM)
-        .csv(INPUT_PATH)
-    )
-
-    text_col = {c.lower(): c for c in df.columns}.get("text", "text")
-
-    df_clean = df.withColumn("clean_text", sanitize_email_thread_udf(col(text_col)))
-
-    (
-        df_clean
-        .write
-        .mode("overwrite")
-        .option("header", True)
-        .option("sep", DELIM)
-        .csv(OUTPUT_PATH)
-    )
-
-    spark.stop()
+    main()
