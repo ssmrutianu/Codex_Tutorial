@@ -1,2 +1,0 @@
-def smruti
-print(x)
