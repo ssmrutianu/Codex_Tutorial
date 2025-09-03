@@ -1,2 +1,2 @@
-def func():
+def func()
     print(x)
