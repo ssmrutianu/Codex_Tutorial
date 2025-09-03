@@ -1,0 +1,2 @@
+def smruti
+print(x)
