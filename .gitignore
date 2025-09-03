@@ -1,0 +1,41 @@
+# ─── Secrets ───────────────────────────────────────────────────────────────
+.env
+.env.*
+*.key
+
+# ─── Python byte-code & caches ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# ─── Virtual environments ─────────────────────────────────────────────────
+.venv/
+venv/
+ENV/
+
+# ─── Logs & run artifacts ─────────────────────────────────────────────────
+*.log
+*.out
+
+# ─── Build / dist ─────────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+
+# ─── Jupyter ──────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ─── IDE & editor folders ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ─── macOS / Windows noise ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Spark local metastore (if you run Spark locally) ─────────────────────
+.metastore_db/
+spark-warehouse/
