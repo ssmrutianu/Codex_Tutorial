@@ -2,7 +2,7 @@
 multi_output_linreg.py
 Train a Linear Regression model with 1 feature (X)
 and 2 target variables (y1, y2).  Reports MSE, MAE, and R²
-for each output.
+for each output. Add new features.
 """
  
 import numpy as np
